@@ -1,0 +1,5 @@
+owner            = "John Doe"
+project_name     = "SampleProject"
+environment_name = "dev"
+prefix           = "sample-dev"
+region           = "ap-northeast-1"

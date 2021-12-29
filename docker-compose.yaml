@@ -1,0 +1,15 @@
+version: "3"
+services:
+  terraform:
+    container_name: "terraform"
+    image: local/terraform-samples-for-aws
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - ./terraform:/root/tf
+      - ./tools:/root/tools
+    environment:
+      AWS_ACCESS_KEY_ID     : ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY : ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION    : ${AWS_DEFAULT_REGION}
