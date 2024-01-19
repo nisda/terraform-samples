@@ -1,5 +1,5 @@
 FROM amazonlinux:2
-
+# FROM amazonlinux:2023 ... tfenvが未対応
 
 # Update yum
 RUN yum update -y
@@ -9,6 +9,12 @@ RUN yum install -y unzip less jq
 
 # Install git
 RUN yum install -y git
+
+# Install python
+RUN amazon-linux-extras install python3.8 -y && \
+    yum install -y python38-devel # /usr/include/python3.8 && \
+    pip3.8 install --upgrade pip  && \
+    pip install setuptools --upgrade
 
 # Install tfenv, terraform:latest
 RUN git clone https://github.com/tfutils/tfenv.git ~/.tfenv && \
