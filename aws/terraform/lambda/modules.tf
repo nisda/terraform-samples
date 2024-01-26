@@ -10,8 +10,9 @@ module "parameter_store" {
   region      = local.region
 }
 
-module "rest_api_request" {
-  source      = "./modules/rest_api_request/"
+module "multiple_modules_in_layers" {
+  source      = "./modules/multiple_modules_in_layers/"
   base_prefix = "${local.prefix}-03"
 }
+
 
