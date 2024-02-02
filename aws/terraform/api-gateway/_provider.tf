@@ -1,11 +1,10 @@
 provider "aws" {
-  region = var.region
+  region = local.region
   default_tags {
     tags = {
-      ManagedBy       = "Terraform"
-      Owner           = var.owner
-      Project         = var.project_name
-      EnvironmentName = var.environment_name
+      ManagedBy = "Terraform"
+      Project   = local.project_name
+      Env       = local.env
     }
   }
 }

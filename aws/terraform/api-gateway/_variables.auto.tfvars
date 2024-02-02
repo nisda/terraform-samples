@@ -1,5 +1,0 @@
-owner            = "John Doe"
-project_name     = "SampleProject"
-environment_name = "dev"
-prefix           = "sample"
-region           = "ap-northeast-1"

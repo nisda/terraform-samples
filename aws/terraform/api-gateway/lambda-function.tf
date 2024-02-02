@@ -1,24 +1,77 @@
-data "archive_file" "sample_lambda_function_zip" {
-  type        = "zip"
-  source_file = "./lambda-function/apigw_event_dump.py"
-  output_path = "/tmp/lambda-function/apigw_event_dump.zip"
+#------------------------------------------------------
+# Lambda Function: イベント出力
+#------------------------------------------------------
+
+data "archive_file" "event_dump_lambda_zip" {
+  type             = "zip"
+  source_dir       = "${local.lambda_func_src_dir}/event_dump"
+  output_path      = "${local.lambda_func_tmp_dir}/event_dump.zip"
+  output_file_mode = "644"
 }
 
-resource "aws_lambda_function" "sample_lambda_function" {
-  function_name    = local.name.sample_lambda_function
-  role             = aws_iam_role.sample_lambda_function_role.arn
-  filename         = data.archive_file.sample_lambda_function_zip.output_path
-  source_code_hash = data.archive_file.sample_lambda_function_zip.output_base64sha256
+resource "aws_lambda_function" "event_dump_lambda" {
+  function_name    = "${local.prefix}-event-dump"
+  role             = aws_iam_role.lambda_common_role.arn
+  filename         = data.archive_file.event_dump_lambda_zip.output_path
+  source_code_hash = data.archive_file.event_dump_lambda_zip.output_base64sha256
   runtime          = "python3.9"
-  handler          = "apigw_event_dump.lambda_handler"
+  handler          = "event_dump.lambda_handler"
   memory_size      = 128
   timeout          = 10
+  lifecycle {
+    ignore_changes = [filename]
+  }
 }
 
-resource "aws_lambda_permission" "lambda_permission" {
+resource "aws_cloudwatch_log_group" "event_dump_lambda_log" {
+  name = "/aws/lambda/${aws_lambda_function.event_dump_lambda.function_name}"
+  tags = {
+    Name = "${aws_lambda_function.event_dump_lambda.function_name}-log"
+  }
+  retention_in_days = local.lambda_log_retention_in_days
+}
+
+#------------------------------------------------------
+# API-Gateway向けリソースベースポリシー
+#------------------------------------------------------
+resource "aws_lambda_permission" "event_dump_lambda_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   principal     = "apigateway.amazonaws.com"
-  function_name = aws_lambda_function.sample_lambda_function.function_name
+  function_name = aws_lambda_function.event_dump_lambda.function_name
   source_arn    = "${aws_api_gateway_rest_api.sample_rest_api.execution_arn}/*/*/*" # <execution_arn>/<stage>/<method>/<path>
+}
+
+
+#------------------------------------------------------
+# Lambda Function：API-Gateway カスタムオーソライザー
+#------------------------------------------------------
+
+data "archive_file" "custom_authorizer_lambda_zip" {
+  type             = "zip"
+  source_dir       = "${local.lambda_func_src_dir}/custom_authorizer"
+  output_path      = "${local.lambda_func_tmp_dir}/custom_authorizer.zip"
+  output_file_mode = "644"
+}
+
+resource "aws_lambda_function" "custom_authorizer_lambda" {
+  function_name    = "${local.prefix}-custom-authorizer"
+  role             = aws_iam_role.lambda_common_role.arn
+  filename         = data.archive_file.custom_authorizer_lambda_zip.output_path
+  source_code_hash = data.archive_file.custom_authorizer_lambda_zip.output_base64sha256
+  runtime          = "python3.9"
+  handler          = "custom_authorizer.lambda_handler"
+  memory_size      = 128
+  timeout          = 10
+  lifecycle {
+    ignore_changes = [filename]
+  }
+}
+
+resource "aws_cloudwatch_log_group" "custom_authorizer_lambda_log" {
+  name = "/aws/lambda/${aws_lambda_function.custom_authorizer_lambda.function_name}"
+  tags = {
+    Name = "${aws_lambda_function.custom_authorizer_lambda.function_name}-log"
+  }
+  retention_in_days = local.lambda_log_retention_in_days
 }
