@@ -13,9 +13,8 @@ import uuid
 #----------------------------------
 def init_logger():
     # RootLoggerに設定
+    # layerなど外部ライブラリにも影響するので、LEVELは設定しない。
     logger = logging.getLogger()
-    log_level = os.getenv("LOG_LEVEL", "INFO")
-    logger.setLevel(logging.getLevelName(log_level))
     for h in logger.handlers:
         h.setFormatter(logging.Formatter("[%(levelname)s] %(message)s\n"))
     return
