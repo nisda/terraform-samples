@@ -2,9 +2,10 @@
 //  APIリクエスト
 //---------------------------------------
 data "archive_file" "multiple_modules_function" {
-  type        = "zip"
-  source_dir  = "${local.lambda_function_src_dir}/multiple_modules_in_layers"
-  output_path = "${local.lambda_function_tmp_dir}/multiple_modules_in_layers.zip"
+  type             = "zip"
+  source_dir       = "${local.lambda_function_src_dir}/multiple_modules_in_layers"
+  output_path      = "${local.lambda_function_tmp_dir}/multiple_modules_in_layers.zip"
+  output_file_mode = "0644"
 }
 
 resource "aws_lambda_function" "multiple_modules_function" {

@@ -2,9 +2,10 @@
 //  イベント情報をDUMP出力
 //---------------------------------------
 data "archive_file" "event_dump_function" {
-  type        = "zip"
-  source_dir  = "${local.lambda_function_src_dir}/event_dump"
-  output_path = "${local.lambda_function_tmp_dir}/event_dump.zip"
+  type             = "zip"
+  source_dir       = "${local.lambda_function_src_dir}/event_dump"
+  output_path      = "${local.lambda_function_tmp_dir}/event_dump.zip"
+  output_file_mode = "0644"
 }
 
 resource "aws_lambda_function" "event_dump_function" {

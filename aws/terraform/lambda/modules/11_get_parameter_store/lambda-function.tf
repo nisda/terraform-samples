@@ -2,9 +2,10 @@
 //  パラメータストア読み込み
 //---------------------------------------
 data "archive_file" "get_parameter_store_function" {
-  type        = "zip"
-  source_dir  = "${local.lambda_function_src_dir}/get_parameter_store"
-  output_path = "${local.lambda_function_tmp_dir}/get_parameter_store.zip"
+  type             = "zip"
+  source_dir       = "${local.lambda_function_src_dir}/get_parameter_store"
+  output_path      = "${local.lambda_function_tmp_dir}/get_parameter_store.zip"
+  output_file_mode = "0644"
 }
 
 resource "aws_lambda_function" "get_parameter_store_function" {
