@@ -125,6 +125,8 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
           }
         }
       }
+
+
       #-------------------------------------
       # 認証 - APIキー
       #-------------------------------------
@@ -144,6 +146,29 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
       }
 
       #-------------------------------------
+      # 認証 - Basic認証（Lambda）
+      #-------------------------------------
+      "/auth/basic" : {
+        "x-amazon-apigateway-any-method" : {
+          "security" : [{
+            "basic-auth" : []
+          }],
+          "x-amazon-apigateway-integration" : {
+            "httpMethod" : "POST",
+            "uri" : aws_lambda_function.event_dump_lambda.invoke_arn,
+            "responses" : {
+              "default" : {
+                "statusCode" : "200"
+              }
+            },
+            "passthroughBehavior" : "when_no_match",
+            "contentHandling" : "CONVERT_TO_TEXT",
+            "type" : "aws_proxy"
+          },
+        }
+      }
+
+      #-------------------------------------
       # 認証 - Lambda(token)
       #-------------------------------------
       "/auth/custom/token" : {
@@ -154,7 +179,6 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
           "x-amazon-apigateway-integration" : {
             "httpMethod" : "POST",
             "uri" : aws_lambda_function.event_dump_lambda.invoke_arn,
-            "uri" : "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:991751320010:function:apigw-poc-event-dump/invocations",
             "responses" : {
               "default" : {
                 "statusCode" : "200"
@@ -178,7 +202,6 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
           "x-amazon-apigateway-integration" : {
             "httpMethod" : "POST",
             "uri" : aws_lambda_function.event_dump_lambda.invoke_arn,
-            "uri" : "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:991751320010:function:apigw-poc-event-dump/invocations",
             "responses" : {
               "default" : {
                 "statusCode" : "200"
@@ -210,16 +233,51 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
       }
     }
 
+
+    #-------------------------------------
+    # ゲートウェイレスポンス
+    #-------------------------------------
+    "x-amazon-apigateway-gateway-responses" : {
+      # ブラウザでBasic認証ダイアログを出すために必要。
+      # ダイアログを出さないなら不要。
+      "UNAUTHORIZED" : {
+        "statusCode" : 401,
+        "responseParameters" : {
+          "gatewayresponse.header.WWW-Authenticate" : "'Basic'"
+        },
+        "responseTemplates" : {
+          "application/json" : "{\"message\":$context.error.messageString}"
+        }
+      },
+    }
+
     #-------------------------------------
     # オーソライザー
     #-------------------------------------
     components = {
       "securitySchemes" : {
+        # API-Key認証
         "api_key" : {
           "type" : "apiKey",
           "name" : "x-api-key",
           "in" : "header"
         },
+        # Basic認証
+        # ブラウザで認証ダイアログを出すにはGatewayResponseの設定が必要。
+        "basic-auth" : {
+          "type" : "apiKey",
+          "name" : "authorization",
+          "in" : "header",
+          "x-amazon-apigateway-authtype" : "custom",
+          "x-amazon-apigateway-authorizer" : {
+            "authorizerUri" : aws_lambda_function.basic_authorizer_lambda.invoke_arn,
+            "authorizerCredentials" : aws_iam_role.apigw_authorizer_invoke_role.arn,
+            "authorizerResultTtlInSeconds" : 60,
+            "type" : "token"
+            # "identityValidationExpression" : "^[a-zA-Z0-9]+$",
+          }
+        },
+        # カスタム（特定ヘッダのみをLambdaに渡す）
         "custom-auth-token" : {
           "type" : "apiKey",
           "name" : "x-api-key",
@@ -233,6 +291,7 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
             "identityValidationExpression" : "^[a-zA-Z0-9]+$",
           }
         },
+        # カスタム（すべてのINPUTをLambdaに渡す）
         "custom-auth-request" : {
           "type" : "apiKey",
           "name" : "x-api-key",

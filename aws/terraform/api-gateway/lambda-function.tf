@@ -75,3 +75,37 @@ resource "aws_cloudwatch_log_group" "custom_authorizer_lambda_log" {
   }
   retention_in_days = local.lambda_log_retention_in_days
 }
+
+
+#------------------------------------------------------
+# Lambda Function：API-Gateway Basic認証
+#------------------------------------------------------
+
+data "archive_file" "basic_authorizer_lambda_zip" {
+  type             = "zip"
+  source_dir       = "${local.lambda_func_src_dir}/basic_authorizer"
+  output_path      = "${local.lambda_func_tmp_dir}/basic_authorizer.zip"
+  output_file_mode = "644"
+}
+
+resource "aws_lambda_function" "basic_authorizer_lambda" {
+  function_name    = "${local.prefix}-basic-authorizer"
+  role             = aws_iam_role.lambda_common_role.arn
+  filename         = data.archive_file.basic_authorizer_lambda_zip.output_path
+  source_code_hash = data.archive_file.basic_authorizer_lambda_zip.output_base64sha256
+  runtime          = "python3.9"
+  handler          = "basic_authorizer.lambda_handler"
+  memory_size      = 128
+  timeout          = 10
+  lifecycle {
+    ignore_changes = [filename]
+  }
+}
+
+resource "aws_cloudwatch_log_group" "basic_authorizer_lambda_log" {
+  name = "/aws/lambda/${aws_lambda_function.basic_authorizer_lambda.function_name}"
+  tags = {
+    Name = "${aws_lambda_function.basic_authorizer_lambda.function_name}-log"
+  }
+  retention_in_days = local.lambda_log_retention_in_days
+}
