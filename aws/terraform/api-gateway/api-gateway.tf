@@ -146,13 +146,46 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
       }
 
       #-------------------------------------
-      # 認証 - Basic認証（Lambda）
+      # 認証 - Basic認証（simple）
       #-------------------------------------
-      "/auth/basic" : {
+      "/auth/basic/simple" : {
         "x-amazon-apigateway-any-method" : {
           "security" : [{
-            "basic-auth" : []
+            "basic-auth-simple" : []
           }],
+          "x-amazon-apigateway-integration" : {
+            "httpMethod" : "POST",
+            "uri" : aws_lambda_function.event_dump_lambda.invoke_arn,
+            "responses" : {
+              "default" : {
+                "statusCode" : "200"
+              }
+            },
+            "passthroughBehavior" : "when_no_match",
+            "contentHandling" : "CONVERT_TO_TEXT",
+            "type" : "aws_proxy"
+          },
+        }
+      }
+
+      #-------------------------------------
+      # 認証 - Basic認証（複合条件）
+      #-------------------------------------
+      "/auth/basic/project/{project_id}" : {
+        "x-amazon-apigateway-any-method" : {
+          "security" : [{
+            "basic-auth-compound" : []
+          }],
+          "parameters" : [
+            {
+              "name" : "project_id",
+              "in" : "path",
+              "required" : true,
+              "schema" : {
+                "type" : "string"
+              }
+            },
+          ]
           "x-amazon-apigateway-integration" : {
             "httpMethod" : "POST",
             "uri" : aws_lambda_function.event_dump_lambda.invoke_arn,
@@ -262,19 +295,32 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
           "name" : "x-api-key",
           "in" : "header"
         },
-        # Basic認証
-        # ブラウザで認証ダイアログを出すにはGatewayResponseの設定が必要。
-        "basic-auth" : {
+        # Basic認証（simple）
+        "basic-auth-simple" : {
           "type" : "apiKey",
           "name" : "authorization",
           "in" : "header",
           "x-amazon-apigateway-authtype" : "custom",
           "x-amazon-apigateway-authorizer" : {
-            "authorizerUri" : aws_lambda_function.basic_authorizer_lambda.invoke_arn,
+            "authorizerUri" : aws_lambda_function.apigw_basic_authorizer_lambda.invoke_arn,
             "authorizerCredentials" : aws_iam_role.apigw_authorizer_invoke_role.arn,
             "authorizerResultTtlInSeconds" : 60,
             "type" : "token"
-            # "identityValidationExpression" : "^[a-zA-Z0-9]+$",
+            "identityValidationExpression" : "^Basic [a-zA-Z0-9]+=*$",
+          }
+        },
+        # Basic認証（複合条件）
+        "basic-auth-compound" : {
+          "type" : "apiKey",
+          "name" : "authorization",
+          "in" : "header",
+          "x-amazon-apigateway-authtype" : "custom",
+          "x-amazon-apigateway-authorizer" : {
+            "authorizerUri" : aws_lambda_function.apigw_basic_authorizer_lambda.invoke_arn,
+            "authorizerCredentials" : aws_iam_role.apigw_authorizer_invoke_role.arn,
+            "authorizerResultTtlInSeconds" : 60,
+            "type" : "REQUEST"
+            "identitySource" : "method.request.header.Authorization",
           }
         },
         # カスタム（特定ヘッダのみをLambdaに渡す）
@@ -284,7 +330,7 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
           "in" : "header",
           "x-amazon-apigateway-authtype" : "custom",
           "x-amazon-apigateway-authorizer" : {
-            "authorizerUri" : aws_lambda_function.custom_authorizer_lambda.invoke_arn,
+            "authorizerUri" : aws_lambda_function.apigw_custom_authorizer_lambda.invoke_arn,
             "authorizerCredentials" : aws_iam_role.apigw_authorizer_invoke_role.arn,
             "authorizerResultTtlInSeconds" : 60,
             "type" : "token"
@@ -298,7 +344,7 @@ resource "aws_api_gateway_rest_api" "sample_rest_api" {
           "in" : "header",
           "x-amazon-apigateway-authtype" : "custom",
           "x-amazon-apigateway-authorizer" : {
-            "authorizerUri" : aws_lambda_function.custom_authorizer_lambda.invoke_arn,
+            "authorizerUri" : aws_lambda_function.apigw_custom_authorizer_lambda.invoke_arn,
             "authorizerCredentials" : aws_iam_role.apigw_authorizer_invoke_role.arn,
             "authorizerResultTtlInSeconds" : 60,
             "type" : "REQUEST",

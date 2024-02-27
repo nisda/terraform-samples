@@ -1,33 +1,78 @@
 import re
 import base64
 import hashlib
+import json
 
-USERNAME = "aaa"
-PASSWORD = "bbbccc"
+import os
+import boto3
+from boto3.dynamodb.types import TypeDeserializer
 
-def basic_auth(authorization_token):
-    if not authorization_token.startswith("Basic "):
-        return False
 
-    basic_token_decoded:str = base64.b64decode(authorization_token.split(" ")[1]).decode('utf-8')
+def dynamodb_type_deserialize(item: dict):
+    return {k: TypeDeserializer().deserialize(value=v) for k, v in item.items()}
+
+def deserialize_basic_auth_token(token):
+    if not token.startswith("Basic "):
+        return None
+    basic_token_decoded:str = base64.b64decode(token.split(" ")[1]).decode('utf-8')
     basic_username:str = basic_token_decoded.split(":")[0]
     basic_password:str = ':'.join(basic_token_decoded.split(":")[1:])
+    return {
+        "user_id"   : basic_username,
+        "password"  : basic_password,
+    }
 
-    if not ( basic_username == USERNAME and basic_password == PASSWORD):
-        return False
+def auth_password(user_id, password):
+    client = boto3.client('dynamodb')
+    table_name_auth = os.getenv("DYNAMODB_TABLE_BASIC_AUTH")
+    item_org = client.get_item(
+        TableName=table_name_auth,
+        Key={
+            'user_id': {
+                'S': user_id,
+            }
+        },
+    ).get("Item", {})
+    item = dynamodb_type_deserialize(item_org)
 
-    return True
+
+    print(user_id)
+    print(password)
+    print(item)
+
+    # 比較
+    if item == {}: return False
+    if item.get("password") != password: return False
+
+    # 認証OK
+    return item
 
 
+
+def auth_compound(user_id, password, project_id):
+    # パスワード認証
+    item: dict = auth_password(user_id=user_id, password=password)
+    if not item: return False
+
+    # 追加条件の比較
+    project_id = int(project_id)
+    permitted_project_id = item.get("project_id")
+    if isinstance(permitted_project_id, list):
+        if project_id not in item.get("project_id"):
+            return False
+    else:
+        if permitted_project_id != project_id:
+            return False
+
+    # 認証OK
+    return item
 
 
 def lambda_handler(event, context):
-    print("Event:")
-    print(event)
+    print("Event: " + json.dumps(event))
 
-    print("Client token: " + event['authorizationToken'])
+    # print("Client token: " + event['authorizationToken'])
     # print("Method ARN: " + event['methodArn'])
-
 
     '''
     Validate the incoming token and produce the principal user identifier
@@ -41,17 +86,45 @@ def lambda_handler(event, context):
     #------------------------------------
     #   Basic認証
     #------------------------------------
-    auth_token:str = event['authorizationToken']
-    if not basic_auth(auth_token):
+
+    # 認証情報を取得
+    request_type:str = event.get("type").upper()
+    method_arn = event['methodArn']
+    if request_type == 'TOKEN':
+        token = event['authorizationToken']
+    else:
+        token = event['headers'].get('authorization') or event['headers'].get('Authorization')
+        additional_params = {
+            "project_id" : event.get('pathParameters', {}).get('project_id', None)
+        }
+
+    # 認証情報を分解
+    auth_info:dict = deserialize_basic_auth_token(token)
+    if not auth_info:
+        print("[ERROR]: token syntax error.")
+        raise Exception('Unauthorized')
+    user_id:str     = auth_info["user_id"]
+    password:str    = auth_info["password"]
+
+    principalId = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    # 認証
+    if request_type == 'TOKEN':
+        auth_result = auth_password(user_id=user_id, password=password)
+    else:
+        auth_result = auth_compound(user_id=user_id, password=password, **additional_params)
+    if not auth_result:
+        print("[ERROR]: auth error.")
         raise Exception('Unauthorized')
 
-    principalId = hashlib.sha256(auth_token.encode("utf-8")).hexdigest()
+    # この結果で利用可能なメソッド+パスを指定する処理が未実装
+    # Simpleと複合を１つにまとめたけど、やっぱりLambda分けたほうがいいかも。
 
 
     '''
     You can send a 401 Unauthorized response to the client by failing like so:
 
-      raise Exception('Unauthorized')
+    raise Exception('Unauthorized')
 
     If the token is valid, a policy must be generated which will allow or deny
     access to the client. If access is denied, the client will receive a 403
@@ -87,14 +160,16 @@ def lambda_handler(event, context):
     # these are made available by APIGW like so: $context.authorizer.<key>
     # additional context is cached
     context = {
-        'key': 'value',  # $context.authorizer.key -> value
-        'number': 1,
-        'bool': True
+        # 'key': 'value',  # $context.authorizer.key -> value
+        # 'number': 1,
+        # 'bool': True
     }
     # context['arr'] = ['foo'] <- this is invalid, APIGW will not accept it
     # context['obj'] = {'foo':'bar'} <- also invalid
 
     authResponse['context'] = context
+
+    print("authResponse: ", json.dumps(authResponse))
 
     return authResponse
 
