@@ -5,7 +5,7 @@ services:
     image: local/terraform-samples-for-aws
     build:
       context: ./
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.al2023
     volumes:
       - ./terraform:/root/tf
       - ./tools:/root/tools
