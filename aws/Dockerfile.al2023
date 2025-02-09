@@ -1,5 +1,6 @@
 FROM amazonlinux:2023
 
+
 # Update yum
 RUN yum update -y
 
@@ -23,6 +24,9 @@ RUN curl https://pyenv.run | bash && \
     source ~/.bashrc && \
     pyenv install 3.12.8 && \
     pyenv global 3.12.8
+# RUN /root/.pyenv/versions/3.12.8/bin/pip install pytest
+COPY requirements.txt /root/
+RUN /root/.pyenv/versions/3.12.8/bin/pip install -r /root/requirements.txt
 
 # Install tfenv, terraform:latest
 RUN git clone --depth=1 https://github.com/tfutils/tfenv.git ~/.tfenv && \
@@ -35,11 +39,6 @@ RUN curl -O https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip && \
     unzip ./awscli-exe-linux-x86_64.zip && \
     ./aws/install
 
-### copy directories 
-COPY ./terraform /root/tf
-COPY ./tools /root/tools
-
-
 ### set bash environment
 RUN echo '' >> ~/.bashrc && \
     echo '' >> ~/.bashrc && \
@@ -47,6 +46,10 @@ RUN echo '' >> ~/.bashrc && \
     echo 'alias la="ls -a"' >> ~/.bashrc && \
     echo 'alias ll="ls -al"' >> ~/.bashrc && \
     echo 'alias awsmfa="source /root/tools/awsmfa.sh"' >> ~/.bashrc
+
+### copy directories 
+COPY ./terraform /root/tf
+COPY ./tools /root/tools
 
 ### move to workspace
 WORKDIR /root/tf

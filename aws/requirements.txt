@@ -1,0 +1,4 @@
+pytest
+pytest-env              # add environment variables
+aws-lambda-powertools   # aws lambda layer
+moto                    # aws mock
